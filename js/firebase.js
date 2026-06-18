@@ -54,9 +54,9 @@ export function joinRoom(playerId, playerName, onPlayersUpdate) {
   const pRef = dbMod.ref(db, playerPath(playerId));
   dbMod.set(pRef, data);
 
-  // Listen for all players in the room
+  // Listen for all players in the room using onValue (modular SDK)
   const allPlayersRef = dbMod.ref(db, "rooms/" + currentChannelId + "/players");
-  const listener = allPlayersRef.on("value", (snapshot) => {
+  const unsubscribe = dbMod.onValue(allPlayersRef, (snapshot) => {
     const raw = snapshot.val();
     if (raw) {
       const list = Object.values(raw).filter(p => p && p.online);
@@ -66,7 +66,7 @@ export function joinRoom(playerId, playerName, onPlayersUpdate) {
     }
   });
 
-  unsubscribers.push(() => allPlayersRef.off("value", listener));
+  unsubscribers.push(unsubscribe);
 }
 
 // ── Update score ─────────────────────────────────────────────────────────────
