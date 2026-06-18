@@ -82,6 +82,9 @@ async function startGame() {
     updateLeaderboard();
   });
 
+  // Show leaderboard immediately with just the local player
+  updateLeaderboard();
+
   // Start game loop
   game.start();
 
@@ -126,6 +129,7 @@ function updateLeaderboard() {
   ].sort((a, b) => b.score - a.score);
 
   // Find your rank (1-indexed)
+  const yourRank = allPlayers.findIndex(p => p.isYou) + 1;
 
   sbList.innerHTML = allPlayers.slice(0, 10).map((p, i) => {
     const rankClass = i === 0 ? "gold" : i === 1 ? "silver" : i === 2 ? "bronze" : "";
