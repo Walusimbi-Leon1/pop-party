@@ -142,6 +142,13 @@ function updateLeaderboard() {
       </div>
     `;
   }).join("");
+
+  // Subtle flash on your row when score changes
+  const yourRow = sbList?.querySelector('.is-you');
+  if (yourRow && playerScore > 0) {
+    yourRow.classList.add('score-changed');
+    setTimeout(() => yourRow.classList.remove('score-changed'), 400);
+  }
 }
 
 function escapeHtml(str) {
