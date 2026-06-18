@@ -6,6 +6,7 @@
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCF6ga46piBB7THekHNDZZmJZ2Q1httGcQ",
   authDomain: "pop-party-1.firebaseapp.com",
+  databaseURL: "https://pop-party-1-default-rtdb.firebaseio.com",
   projectId: "pop-party-1",
   storageBucket: "pop-party-1.firebasestorage.app",
   messagingSenderId: "370649982813",
