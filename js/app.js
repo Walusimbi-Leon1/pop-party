@@ -24,6 +24,7 @@ const scoreDisplay = $("#scoreDisplay");
 const comboDisplay = $("#comboDisplay");
 const sbList = $("#sbList");
 const playerCountEl = $("#playerCount");
+const onlineNum = $("#onlineNum");
 const tapHint = $("#tapHint");
 
 // ── Start ────────────────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ async function startGame() {
     playerScore = score;
     scoreDisplay.textContent = score;
     updateScore(playerId, score);
-
+    updateLeaderboard(); // Refresh leaderboard instantly on our own score change
     // Update Discord activity
     updateActivity(score);
   };
@@ -111,21 +112,28 @@ function showPopText(x, y, text, color) {
 
 // ── Leaderboard ──────────────────────────────────────────────────────────────
 function updateLeaderboard() {
+  // Build player list: local player + others from Firebase
   const sorted = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
-  playerCountEl.textContent = sorted.length + 1; // +1 for this player
+  const otherPlayers = sorted.filter(p => p.id !== playerId);
+  const totalPlayers = otherPlayers.length + 1;
+  
+  playerCountEl.textContent = totalPlayers;
+  if (onlineNum) onlineNum.textContent = totalPlayers;
 
-  // Always include the current player
   const allPlayers = [
-    { id: playerId, name: playerName + " (you)", score: playerScore },
-    ...sorted.filter(p => p.id !== playerId),
+    { id: playerId, name: playerName, score: playerScore, isYou: true },
+    ...otherPlayers.map(p => ({ ...p, isYou: false })),
   ].sort((a, b) => b.score - a.score);
+
+  // Find your rank (1-indexed)
 
   sbList.innerHTML = allPlayers.slice(0, 10).map((p, i) => {
     const rankClass = i === 0 ? "gold" : i === 1 ? "silver" : i === 2 ? "bronze" : "";
+    const youLabel = p.isYou ? '<span class="sb-you-tag">YOU</span>' : "";
     return `
-      <div class="sb-row">
+      <div class="sb-row ${p.isYou ? 'is-you' : ''}">
         <span class="sb-rank ${rankClass}">${i + 1}</span>
-        <span class="sb-name">${escapeHtml(p.name)}</span>
+        <span class="sb-name">${escapeHtml(p.name)}${youLabel}</span>
         <span class="sb-score">${p.score}</span>
       </div>
     `;
