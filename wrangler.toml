@@ -1,0 +1,5 @@
+name = "pop-party"
+pages_build_output_dir = "."
+
+[env.production]
+routes = [{ pattern = "pop-party.walusimbileon2.workers.dev", custom_domain = true }]

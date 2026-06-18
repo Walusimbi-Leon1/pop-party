@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Pop Party 🎈</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎈</text></svg>" />
+</head>
+<body>
+  <!-- Splash / Lobby Screen -->
+  <div id="splash" class="screen active">
+    <div class="splash-content">
+      <div class="logo">🎈</div>
+      <h1>Pop Party</h1>
+      <p class="subtitle">Pop balloons. Compete with friends. Have a blast!</p>
+      <button id="playBtn" class="btn-primary">Play Now</button>
+      <p id="splashStatus" class="status-text">Connecting...</p>
+    </div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="gameScreen" class="screen">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div class="hud-left">
+        <span id="scoreDisplay">0</span>
+        <span class="hud-label">POP!</span>
+      </div>
+      <div class="hud-center">
+        <span id="comboDisplay" class="hidden"></span>
+      </div>
+      <div class="hud-right">
+        <span id="timerDisplay">∞</span>
+      </div>
+    </div>
+
+    <!-- Scoreboard -->
+    <div id="scoreboard">
+      <div class="sb-header">
+        <span>🏆 Leaderboard</span>
+        <span id="playerCount" class="player-count">1</span>
+      </div>
+      <div id="sbList"></div>
+    </div>
+
+    <!-- Mobile controls help -->
+    <div id="tapHint" class="tap-hint hidden">
+      Tap the balloons! 🎈
+    </div>
+  </div>
+
+  <!-- Modules -->
+  <script type="module" src="js/firebase.js"></script>
+  <script type="module" src="js/discord.js"></script>
+  <script type="module" src="js/game.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

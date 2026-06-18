@@ -1,0 +1,166 @@
+/**
+ * Pop Party — Main Application
+ * Orchestrates Discord SDK, Firebase sync, and the game engine.
+ */
+
+import { initDiscord, isDiscord, channelId, playerName, playerId, updateActivity } from "./discord.js";
+import { initFirebase, joinRoom, updateScore, leaveRoom } from "./firebase.js";
+import { PopGame } from "./game.js";
+
+// ── State ────────────────────────────────────────────────────────────────────
+let game = null;
+let players = [];
+let playerScore = 0;
+let playerScoreBcast = 0;
+
+// ── DOM refs ─────────────────────────────────────────────────────────────────
+const $ = (sel) => document.querySelector(sel);
+const splash = $("#splash");
+const gameScreen = $("#gameScreen");
+const playBtn = $("#playBtn");
+const splashStatus = $("#splashStatus");
+const canvas = $("#gameCanvas");
+const scoreDisplay = $("#scoreDisplay");
+const comboDisplay = $("#comboDisplay");
+const sbList = $("#sbList");
+const playerCountEl = $("#playerCount");
+const tapHint = $("#tapHint");
+
+// ── Start ────────────────────────────────────────────────────────────────────
+async function startApp() {
+  // 1. Init Discord
+  splashStatus.textContent = "Connecting to Discord...";
+  const discordInfo = await initDiscord();
+  console.log("[App] Discord:", discordInfo);
+
+  splashStatus.textContent = discordInfo.isDiscord
+    ? "Connected! 🎉"
+    : "Browser mode — tap Play!";
+
+  // 2. Init Firebase
+  splashStatus.textContent = "Setting up game...";
+  await initFirebase(discordInfo.channelId);
+
+  splashStatus.textContent = "Ready!";
+}
+
+// ── Play ─────────────────────────────────────────────────────────────────────
+async function startGame() {
+  // Transition screen
+  splash.classList.remove("active");
+  gameScreen.classList.add("active");
+
+  // Make canvas full size
+  resizeCanvas();
+
+  // Create game
+  game = new PopGame(canvas);
+  game.onScoreChange = (score) => {
+    playerScore = score;
+    scoreDisplay.textContent = score;
+    updateScore(playerId, score);
+
+    // Update Discord activity
+    updateActivity(score);
+  };
+  game.onPop = (earned, combo, x, y, isGolden) => {
+    // Show combo
+    if (combo >= 3) {
+      comboDisplay.textContent = combo + "x COMBO! +" + (Math.floor(combo / 3) * 5);
+      comboDisplay.classList.remove("hidden");
+      setTimeout(() => comboDisplay.classList.add("hidden"), 600);
+    }
+
+    // Show +points floating text
+    showPopText(x, y, "+" + earned, isGolden ? "#FFD700" : "#fff");
+  };
+
+  // Join Firebase room
+  joinRoom(playerId, playerName, (updatedPlayers) => {
+    players = updatedPlayers;
+    updateLeaderboard();
+  });
+
+  // Start game loop
+  game.start();
+
+  // Show tap hint briefly on mobile
+  if ("ontouchstart" in window) {
+    tapHint.classList.remove("hidden");
+    setTimeout(() => tapHint.classList.add("hidden"), 4000);
+  }
+}
+
+// ── Floating pop text ────────────────────────────────────────────────────────
+function showPopText(x, y, text, color) {
+  const el = document.createElement("div");
+  el.className = "pop-text";
+  el.textContent = text;
+  el.style.left = x + "px";
+  el.style.top = y + "px";
+  el.style.color = color;
+  el.style.position = "absolute";
+  el.style.pointerEvents = "none";
+  el.style.fontWeight = "800";
+  el.style.fontSize = Math.min(28, 16 + text.length * 2) + "px";
+  el.style.textShadow = "0 2px 8px rgba(0,0,0,0.3)";
+  el.style.zIndex = "100";
+  gameScreen.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+
+// ── Leaderboard ──────────────────────────────────────────────────────────────
+function updateLeaderboard() {
+  const sorted = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
+  playerCountEl.textContent = sorted.length + 1; // +1 for this player
+
+  // Always include the current player
+  const allPlayers = [
+    { id: playerId, name: playerName + " (you)", score: playerScore },
+    ...sorted.filter(p => p.id !== playerId),
+  ].sort((a, b) => b.score - a.score);
+
+  sbList.innerHTML = allPlayers.slice(0, 10).map((p, i) => {
+    const rankClass = i === 0 ? "gold" : i === 1 ? "silver" : i === 2 ? "bronze" : "";
+    return `
+      <div class="sb-row">
+        <span class="sb-rank ${rankClass}">${i + 1}</span>
+        <span class="sb-name">${escapeHtml(p.name)}</span>
+        <span class="sb-score">${p.score}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ── Canvas resize ────────────────────────────────────────────────────────────
+function resizeCanvas() {
+  canvas.width = window.innerWidth * (window.devicePixelRatio || 1);
+  canvas.height = window.innerHeight * (window.devicePixelRatio || 1);
+  canvas.style.width = window.innerWidth + "px";
+  canvas.style.height = window.innerHeight + "px";
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+startApp();
+
+// Play button
+playBtn.addEventListener("click", startGame);
+
+// Handle resize
+window.addEventListener("resize", () => {
+  if (game) {
+    game._resize();
+  }
+});
+
+// Clean up on page unload
+window.addEventListener("beforeunload", () => {
+  if (game) game.destroy();
+  leaveRoom(playerId);
+});
