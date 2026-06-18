@@ -77,6 +77,7 @@ export class PopGame {
     this.combo = 0;
     this.lastPopTime = 0;
     this.lastSpawnTime = 0;
+    this.lastFrame = 0;
     this.dpr = 1;
     this.running = false;
     this.raf = null;
@@ -107,6 +108,7 @@ export class PopGame {
   start() {
     if (this.running) return;
     this.running = true;
+    this.lastFrame = performance.now();
     this.lastSpawnTime = performance.now();
     this._resize();
     this._loop(performance.now());
