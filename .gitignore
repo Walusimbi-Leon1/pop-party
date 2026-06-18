@@ -1,5 +1,1 @@
-node_modules/
-dist/
-.dev.vars
-*.log
-.DS_Store
+# No build needed - static HTML site
