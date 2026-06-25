@@ -3,7 +3,8 @@
  * Orchestrates Discord SDK, Firebase sync, and the game engine.
  */
 
-import { initDiscord, isDiscord, channelId, playerName, playerId, updateActivity } from "./discord.js";
+import { initDiscord, isDiscord, channelId, playerId, updateActivity } from "./discord.js";
+import * as Discord from "./discord.js";
 import { initFirebase, joinRoom, updateScore, leaveRoom } from "./firebase.js";
 import { PopGame } from "./game.js";
 
@@ -13,6 +14,7 @@ let players = [];
 let playerScore = 0;
 let playerScoreBcast = 0;
 let hasJoinedRoom = false;
+let displayName = "Player";
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
@@ -27,6 +29,7 @@ const sbList = $("#sbList");
 const playerCountEl = $("#playerCount");
 const onlineNum = $("#onlineNum");
 const tapHint = $("#tapHint");
+const nameInput = $("#nameInput");
 
 // ── Start ────────────────────────────────────────────────────────────────────
 async function startApp() {
@@ -39,6 +42,16 @@ async function startApp() {
     ? "Connected! 🎉"
     : "Browser mode — tap Play!";
 
+  // ── Pre-fill name input ──
+  displayName = Discord.playerName;
+  const savedName = localStorage.getItem("pop-party-name");
+  if (nameInput) {
+    nameInput.value = (displayName !== "Player") ? displayName : (savedName || "");
+    nameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") playBtn.click();
+    });
+  }
+
   // 2. Init Firebase
   splashStatus.textContent = "Setting up game...";
   await initFirebase(discordInfo.channelId);
@@ -48,6 +61,14 @@ async function startApp() {
 
 // ── Play ─────────────────────────────────────────────────────────────────────
 async function startGame() {
+  // ── Apply display name from input ──
+  if (nameInput && nameInput.value.trim()) {
+    displayName = nameInput.value.trim();
+    localStorage.setItem("pop-party-name", displayName);
+  } else if (!displayName || displayName === "Player") {
+    displayName = Discord.playerName || "Guest " + Math.floor(Math.random() * 1000);
+  }
+
   // Transition screen
   splash.classList.remove("active");
   gameScreen.classList.add("active");
@@ -80,7 +101,7 @@ async function startGame() {
   // Join Firebase room (only once)
   if (!hasJoinedRoom) {
     hasJoinedRoom = true;
-    joinRoom(playerId, playerName, (updatedPlayers) => {
+    joinRoom(playerId, displayName, (updatedPlayers) => {
       players = updatedPlayers;
       updateLeaderboard();
     });
@@ -128,7 +149,7 @@ function updateLeaderboard() {
   if (onlineNum) onlineNum.textContent = totalPlayers;
 
   const allPlayers = [
-    { id: playerId, name: playerName, score: playerScore, isYou: true },
+    { id: playerId, name: displayName, score: playerScore, isYou: true },
     ...otherPlayers.map(p => ({ ...p, isYou: false })),
   ].sort((a, b) => b.score - a.score);
 

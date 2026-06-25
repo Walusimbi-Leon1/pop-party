@@ -5,12 +5,14 @@
  * Auth flow:
  *   In Discord Activity context, the SDK's authenticate() command returns
  *   user info directly — no OAuth code exchange needed. Discord transparently
- *   provides the auth context to the iframe.
+ *   provides the auth context to the Activity iframe.
  *
- *   If authenticate() fails (Activity URL not yet configured, or running
- *   outside Discord), we fall back to anonymous browser-style IDs.
- *   The heartbeat + polling system in firebase.js keeps everyone visible
- *   regardless of whether we have real Discord names.
+ *   Requires the Activity URL to be set in Discord Developer Portal
+ *   (Application → Settings → Activity → Activity URL).
+ *   Discord shows the OAuth consent screen automatically on first launch.
+ *
+ *   If authenticate() fails (not in Discord, URL not configured), we fall
+ *   back to a name input on the splash screen so players can set their name.
  */
 
 const CLIENT_ID = "1517048814513422467";
@@ -44,9 +46,9 @@ export async function initDiscord() {
     channelId = room;
 
     // ── Authenticate via Discord's Activity auth context ──
-    // In Discord Activity, this returns user info directly through the SDK's
-    // internal auth mechanism. No OAuth consent screen needed.
-    // Requires the Activity URL to be configured in Discord Developer Portal.
+    // When the Activity URL is properly set in the Developer Portal,
+    // Discord handles the OAuth consent flow transparently.
+    // Users will see an authorization prompt from Discord on first launch.
     let user = null;
     try {
       const auth = await discordSdk.commands.authenticate();
@@ -57,9 +59,9 @@ export async function initDiscord() {
         console.log("[Discord] Authenticated as:", playerName);
       }
     } catch (authErr) {
-      // authenticate() failed. Most likely the Activity URL isn't configured
-      // in the Developer Portal, or running outside Discord.
-      console.warn("[Discord] auth failed, using anonymous:", authErr.message);
+      console.warn("[Discord] auth failed:", authErr.message);
+      // authenticate() failed. The SDK will attempt re-auth on next page load.
+      // Player name will be set from the splash screen input instead.
     }
 
     console.log("[Discord] Connected. Room:", channelId, "Player:", playerName);
