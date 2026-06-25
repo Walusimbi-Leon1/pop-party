@@ -1,14 +1,16 @@
 /**
  * Discord Embedded App SDK integration for Pop Party.
- * Handles OAuth2 authorization, user identity, and activity updates.
+ * Handles user identity via Discord's Activity auth context.
  *
  * Auth flow:
- *   1. Try silent authenticate() — works if user already authorized previously
- *   2. If that fails, call authorize() — shows Discord's OAuth consent modal
- *      (the user scrolls down and clicks "Authorize")
- *   3. Exchange the authorization code for an access token via /api/exchange
- *   4. Call authenticate({ access_token }) to get user info
- *   5. Use real Discord user ID and name for the game
+ *   In Discord Activity context, the SDK's authenticate() command returns
+ *   user info directly — no OAuth code exchange needed. Discord transparently
+ *   provides the auth context to the iframe.
+ *
+ *   If authenticate() fails (Activity URL not yet configured, or running
+ *   outside Discord), we fall back to anonymous browser-style IDs.
+ *   The heartbeat + polling system in firebase.js keeps everyone visible
+ *   regardless of whether we have real Discord names.
  */
 
 const CLIENT_ID = "1517048814513422467";
@@ -31,7 +33,7 @@ export async function initDiscord() {
 
     isDiscord = true;
 
-    // ── Get channel (doesn't require auth) ──
+    // ── Get channel ID (doesn't require auth) ──
     let room = "lobby";
     try {
       const channel = await discordSdk.commands.getChannelId();
@@ -41,70 +43,30 @@ export async function initDiscord() {
     }
     channelId = room;
 
-    // ── Try silent authentication (works if already authorized this session) ──
+    // ── Authenticate via Discord's Activity auth context ──
+    // In Discord Activity, this returns user info directly through the SDK's
+    // internal auth mechanism. No OAuth consent screen needed.
+    // Requires the Activity URL to be configured in Discord Developer Portal.
     let user = null;
     try {
       const auth = await discordSdk.commands.authenticate();
-      user = auth.user;
-      console.log("[Discord] Authenticated (silent):", user?.username);
-    } catch {
-      // Silent auth failed — user hasn't authorized yet (or session expired)
-      // Show the OAuth consent screen
-      console.log("[Discord] Showing OAuth consent screen...");
-
-      try {
-        // 🚀 This opens Discord's OAuth modal inside the Discord client.
-        // The user sees the permissions listed and must scroll down
-        // to click the "Authorize" button. This is the key missing piece.
-        const { code } = await discordSdk.commands.authorize({
-          client_id: CLIENT_ID,
-          response_type: "code",
-          state: crypto.randomUUID(),
-          scope: ["identify"],
-          // No prompt parameter = always shows the consent screen
-        });
-
-        // Exchange the authorization code for an access token
-        // Uses a Cloudflare Pages Function to keep the client_secret safe
-        const tokenResp = await fetch("/api/exchange", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code }),
-        });
-
-        if (tokenResp.ok) {
-          const { access_token } = await tokenResp.json();
-
-          // Authenticate with the obtained token to get user info
-          const auth = await discordSdk.commands.authenticate({
-            access_token,
-          });
-          user = auth.user;
-          console.log("[Discord] Authorized:", user?.username);
-        } else {
-          console.warn("[Discord] Token exchange failed:", await tokenResp.text());
-        }
-      } catch (authErr) {
-        console.warn("[Discord] Authorization cancelled or failed:", authErr.message);
+      if (auth?.user) {
+        user = auth.user;
+        playerName = user.global_name || user.username || "Player";
+        playerId = String(user.id);
+        console.log("[Discord] Authenticated as:", playerName);
       }
+    } catch (authErr) {
+      // authenticate() failed. Most likely the Activity URL isn't configured
+      // in the Developer Portal, or running outside Discord.
+      console.warn("[Discord] auth failed, using anonymous:", authErr.message);
     }
 
-    // ── Set player identity from Discord user info ──
-    if (user) {
-      playerName = user.global_name || user.username || "Player";
-      playerId = String(user.id);
-      console.log("[Discord] Player:", playerName, "(ID:", playerId + ")");
-    } else {
-      // Fallback — user denied authorization or exchange failed
-      playerName = "Player " + Math.floor(Math.random() * 1000);
-      playerId = "discord-anon-" + Math.random().toString(36).slice(2, 9);
-      console.log("[Discord] Using fallback identity:", playerName);
-    }
-
+    console.log("[Discord] Connected. Room:", channelId, "Player:", playerName);
     return { isDiscord: true, channelId, playerName, playerId };
   } catch (err) {
     console.warn("[Discord] Not in Discord context:", err.message);
-    // Browser mode — no Discord SDK
+    // Browser mode — no Discord SDK available
     isDiscord = false;
     channelId = "lobby";
     playerName = "Guest " + Math.floor(Math.random() * 1000);
