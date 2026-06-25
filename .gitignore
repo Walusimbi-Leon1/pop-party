@@ -1,1 +1,12 @@
-# No build needed - static HTML site
+# Node artifacts
+node_modules/
+
+# OS garbage
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Environment overrides
+.env
+.env.local
