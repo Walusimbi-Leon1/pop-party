@@ -67,6 +67,23 @@ body { position: relative; }
 }
 .btn-primary:hover { transform: scale(1.05); box-shadow: 0 6px 30px rgba(238,90,36,0.6); }
 .btn-primary:active { transform: scale(0.97); }
+
+/* ── Discord Authorize Button ──────────────────────────── */
+.btn-discord {
+  display: inline-block;
+  padding: 12px 32px;
+  margin-bottom: 12px;
+  font-size: 16px; font-weight: 700;
+  border: none; border-radius: 50px;
+  cursor: pointer;
+  background: #5865f2;
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(88,101,242,0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.btn-discord:hover { transform: scale(1.05); box-shadow: 0 6px 28px rgba(88,101,242,0.5); }
+.btn-discord:active { transform: scale(0.97); }
+.btn-discord:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 .status-text { margin-top: 16px; font-size: 13px; color: rgba(255,255,255,0.4); }
 
 /* ── Game Canvas ────────────────────────────────────────────── */

@@ -3,7 +3,7 @@
  * Orchestrates Discord SDK, Firebase sync, and the game engine.
  */
 
-import { initDiscord, isDiscord, channelId, playerId, updateActivity } from "./discord.js";
+import { initDiscord, authorizeDiscord, isDiscord, isAuthorizing, authError, channelId, playerId, updateActivity } from "./discord.js";
 import * as Discord from "./discord.js";
 import { initFirebase, joinRoom, updateScore, leaveRoom } from "./firebase.js";
 import { PopGame } from "./game.js";
@@ -15,12 +15,14 @@ let playerScore = 0;
 let playerScoreBcast = 0;
 let hasJoinedRoom = false;
 let displayName = "Player";
+let discordAuthorized = false;
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
 const splash = $("#splash");
 const gameScreen = $("#gameScreen");
 const playBtn = $("#playBtn");
+const authBtn = $("#authBtn");
 const splashStatus = $("#splashStatus");
 const canvas = $("#gameCanvas");
 const scoreDisplay = $("#scoreDisplay");
@@ -33,30 +35,78 @@ const nameInput = $("#nameInput");
 
 // ── Start ────────────────────────────────────────────────────────────────────
 async function startApp() {
-  // 1. Init Discord
   splashStatus.textContent = "Connecting to Discord...";
+
+  // 1. Init Discord SDK
   const discordInfo = await initDiscord();
   console.log("[App] Discord:", discordInfo);
-
-  splashStatus.textContent = discordInfo.isDiscord
-    ? "Connected! 🎉"
-    : "Browser mode — tap Play!";
-
-  // ── Pre-fill name input ──
-  displayName = Discord.playerName;
-  const savedName = localStorage.getItem("pop-party-name");
-  if (nameInput) {
-    nameInput.value = (displayName !== "Player") ? displayName : (savedName || "");
-    nameInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") playBtn.click();
-    });
-  }
 
   // 2. Init Firebase
   splashStatus.textContent = "Setting up game...";
   await initFirebase(discordInfo.channelId);
 
+  // 3. Handle auth state
+  if (discordInfo.isDiscord) {
+    if (discordInfo.authorized) {
+      // Already authorized — Discord username pre-filled
+      discordAuthorized = true;
+      splashStatus.textContent = "Connected! 🎉";
+    } else {
+      // Needs authorization — show the Authorize button
+      splashStatus.textContent = "Authorize with Discord to play with friends!";
+      if (authBtn) {
+        authBtn.style.display = "inline-block";
+        authBtn.addEventListener("click", onAuthorizeClick);
+      }
+      // Auto-trigger authorize after a short delay (consent screen)
+      setTimeout(() => {
+        if (!discordAuthorized && authBtn && authBtn.style.display !== "none") {
+          onAuthorizeClick();
+        }
+      }, 1500);
+    }
+  } else {
+    splashStatus.textContent = "Browser mode — tap Play!";
+  }
+
+  // ── Pre-fill name input ──
+  displayName = Discord.playerName;
+  const savedName = localStorage.getItem("pop-party-name");
+  if (nameInput) {
+    nameInput.value = (displayName !== "Player" && displayName !== "Guest " + Math.floor(Math.random() * 1000))
+      ? displayName : (savedName || "");
+    nameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") playBtn.click();
+    });
+  }
+
   splashStatus.textContent = "Ready!";
+}
+
+// ── Handle Authorize button click ──────────────────────────────────────────
+async function onAuthorizeClick() {
+  if (isAuthorizing) return;
+  splashStatus.textContent = "Opening Discord authorization...";
+  if (authBtn) {
+    authBtn.disabled = true;
+    authBtn.textContent = "⏳ Authorizing...";
+  }
+
+  const success = await authorizeDiscord();
+
+  if (success) {
+    discordAuthorized = true;
+    displayName = Discord.playerName;
+    if (nameInput) nameInput.value = displayName;
+    splashStatus.textContent = "Connected as " + displayName + "! 🎉";
+    if (authBtn) authBtn.style.display = "none";
+  } else {
+    splashStatus.textContent = authError || "Authorization failed. Enter your name manually to play.";
+    if (authBtn) {
+      authBtn.disabled = false;
+      authBtn.textContent = "🔐 Authorize with Discord";
+    }
+  }
 }
 
 // ── Play ─────────────────────────────────────────────────────────────────────
