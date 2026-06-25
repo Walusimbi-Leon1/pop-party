@@ -12,6 +12,7 @@ let game = null;
 let players = [];
 let playerScore = 0;
 let playerScoreBcast = 0;
+let hasJoinedRoom = false;
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
@@ -76,11 +77,14 @@ async function startGame() {
     showPopText(x, y, "+" + earned, isGolden ? "#FFD700" : "#fff");
   };
 
-  // Join Firebase room
-  joinRoom(playerId, playerName, (updatedPlayers) => {
-    players = updatedPlayers;
-    updateLeaderboard();
-  });
+  // Join Firebase room (only once)
+  if (!hasJoinedRoom) {
+    hasJoinedRoom = true;
+    joinRoom(playerId, playerName, (updatedPlayers) => {
+      players = updatedPlayers;
+      updateLeaderboard();
+    });
+  }
 
   // Show leaderboard immediately with just the local player
   updateLeaderboard();
@@ -178,8 +182,22 @@ window.addEventListener("resize", () => {
   }
 });
 
-// Clean up on page unload
-window.addEventListener("beforeunload", () => {
+// ── Cleanup handlers (multiple fallbacks for Discord iframe) ──
+
+function cleanup() {
   if (game) game.destroy();
-  leaveRoom(playerId);
+  if (hasJoinedRoom) {
+    leaveRoom(playerId);
+    hasJoinedRoom = false;
+  }
+}
+
+// Standard page unload
+window.addEventListener("beforeunload", () => {
+  cleanup();
+});
+
+// pagehide is more reliable than beforeunload in iframes
+window.addEventListener("pagehide", () => {
+  cleanup();
 });
